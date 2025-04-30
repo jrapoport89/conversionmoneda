@@ -13,60 +13,62 @@ La app te dirá qué opción te conviene: pagar en CLP, dólares o pesos argenti
 
 # === Inputs del usuario ===
 precio_clp = st.number_input("💰 Precio del producto en CLP", min_value=1.0, step=1.0)
-cotizacion_dolar_comercio = st.number_input("💵 Cotización del DÓLAR que ofrece el comercio (CLP/USD)", min_value=1.0, step=1.0)
-cotizacion_ars_comercio = st.number_input("🇦🇷 Cotización del PESO ARG. que ofrece el comercio (CLP/ARS)", min_value=0.1, step=0.1)
+cotizacion_dolar_comercio = st.number_input("💵 Cotización del DÓLAR ofrecida por el comercio (CLP/USD)", min_value=1.0, step=1.0)
+cotizacion_ars_comercio = st.number_input("🇦🇷 Cotización del PESO ARG. ofrecida por el comercio (CLP/ARS)", min_value=0.1, step=0.1)
 
-# === Obtener cotización oficial USD/ARS desde dolarhoy.com ===
-def get_dolar_oficial():
+# === API de Bluelytics para el dólar oficial ARS ===
+def get_dolar_oficial_ars():
     try:
-        url = "https://api.bluelytics.com.ar/v2/latest"
-        response = requests.get(url)
+        response = requests.get("https://api.bluelytics.com.ar/v2/latest")
         data = response.json()
-        return data["oficial"]["value_sell"]
-    except Exception as e:
+        return data["oficial"]["value_buy"], data["oficial"]["value_sell"]
+    except:
         st.warning("No se pudo obtener la cotización oficial del dólar en Argentina.")
-        return None
+        return None, None
 
-
-# Simulación de cotización dólar oficial en Chile (USD/CLP)
+# === API de mindicador.cl para el dólar CLP ===
 def get_dolar_chile():
     try:
         response = requests.get("https://mindicador.cl/api/dolar")
         data = response.json()
         return data["serie"][0]["valor"]
     except:
-        return 950  # valor estimado si falla
+        st.warning("No se pudo obtener la cotización del dólar oficial en Chile.")
+        return None
 
-dolar_ars = get_dolar_oficial()
+# === Obtener cotizaciones ===
+dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_ars()
 dolar_clp = get_dolar_chile()
 
-if dolar_ars and precio_clp > 0:
+if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
+
     st.subheader("🔎 Resultados del análisis")
 
     # Cálculos
     precio_usd = precio_clp / cotizacion_dolar_comercio
-    precio_ars = precio_clp / cotizacion_ars_comercio
+    precio_ars_directo = precio_clp / cotizacion_ars_comercio
 
-    precio_en_ars_usd = precio_usd * dolar_ars
+    precio_en_ars_usd = precio_usd * dolar_ars_venta
 
-    st.write(f"💸 Precio en **USD**: {precio_usd:.2f} → equivale a **ARS {precio_en_ars_usd:.2f}** (oficial)")
-    st.write(f"💸 Precio en **ARS directo**: ARS {precio_ars:.2f}")
-    st.write(f"💸 Precio en **CLP**: {precio_clp:.2f}")
+    # Mostrar conversiones
+    st.write(f"💸 Precio en **USD**: {precio_usd:.2f} → equivale a **ARS {precio_en_ars_usd:.2f}** (usando dólar oficial venta)")
+    st.write(f"💸 Precio en **ARS directo** (según cotización del comercio): ARS {precio_ars_directo:.2f}")
+    st.write(f"💸 Precio en **CLP**: CLP {precio_clp:.2f}")
 
     # Comparación
-    mejor_opcion = min(precio_en_ars_usd, precio_ars)
-    if mejor_opcion == precio_en_ars_usd:
+    min_valor = min(precio_en_ars_usd, precio_ars_directo)
+    if min_valor == precio_en_ars_usd:
         st.success("✅ Te conviene pagar en **DÓLARES**")
-    elif mejor_opcion == precio_ars:
+    elif min_valor == precio_ars_directo:
         st.success("✅ Te conviene pagar en **PESOS ARGENTINOS**")
     else:
         st.success("✅ Te conviene pagar en **PESOS CHILENOS**")
 
-    # Mostrar cotizaciones
+    # Mostrar cotizaciones oficiales
     st.markdown("---")
-    st.markdown(f"📊 Cotización oficial del dólar en Argentina (USD → ARS): **{dolar_ars}**")
-    st.markdown(f"📊 Cotización oficial del dólar en Chile (USD → CLP): **{dolar_clp}**")
+    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**)")
+    st.markdown(f"📊 Cotización oficial del dólar en Chile: **CLP {dolar_clp}**")
 
 else:
-    st.info("Esperando ingreso de datos o cotizaciones...")
+    st.info("Esperando ingreso de datos o carga de cotizaciones...")
 
