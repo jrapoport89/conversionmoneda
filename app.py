@@ -103,8 +103,7 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
 
     # Mostrar cotizaciones oficiales
     st.markdown("---")
-    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**)  
-📰 Fuente: **{fuente_dolar}**")
+    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**) 📰 Fuente: **{fuente_dolar}**")
     st.markdown(f"📊 Cotización oficial del dólar en Chile: **CLP {dolar_clp}** (fuente: mindicador.cl)")
 
 else:
