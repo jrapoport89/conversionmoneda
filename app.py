@@ -19,14 +19,14 @@ cotizacion_ars_comercio = st.number_input("🇦🇷 Cotización del PESO ARG. qu
 # === Obtener cotización oficial USD/ARS desde dolarhoy.com ===
 def get_dolar_oficial():
     try:
-        url = "https://dolarhoy.com/cotizaciondolaroficial"
+        url = "https://api.bluelytics.com.ar/v2/latest"
         response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        precio = soup.find_all("div", class_="val")[0].text.strip().replace("$", "").replace(".", "").replace(",", ".")
-        return float(precio)
+        data = response.json()
+        return data["oficial"]["value_sell"]
     except Exception as e:
-        st.warning("No se pudo obtener la cotización del dólar oficial en Argentina.")
+        st.warning("No se pudo obtener la cotización oficial del dólar en Argentina.")
         return None
+
 
 # Simulación de cotización dólar oficial en Chile (USD/CLP)
 def get_dolar_chile():
