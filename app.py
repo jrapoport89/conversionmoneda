@@ -33,6 +33,23 @@ def get_dolar_oficial_dolarhoy():
         return None, None
     return None, None
 
+# === Scraping del dólar oficial desde Ámbito ===
+def get_dolar_oficial_ambito():
+    try:
+        url = "https://www.ambito.com/contenidos/dolar/dolaroficial.html"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        valores = soup.find_all("span", class_="dollar_value")
+        if len(valores) >= 2:
+            compra = valores[0].text.strip().replace("$", "").replace(",", ".")
+            venta = valores[1].text.strip().replace("$", "").replace(",", ".")
+            return float(compra), float(venta)
+    except Exception as e:
+        st.warning(f"Error al obtener datos de Ámbito: {e}")
+        return None, None
+    return None, None
+
 # === API alternativa de Bluelytics para el dólar oficial ARS ===
 def get_dolar_oficial_ars():
     try:
@@ -54,7 +71,11 @@ def get_dolar_chile():
 # === Obtener cotizaciones ===
 dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_dolarhoy()
 if not (dolar_ars_compra and dolar_ars_venta):
-    st.warning("❗ No se pudo obtener datos de DolarHoy, intentando con Bluelytics...")
+    st.warning("❗ No se pudo obtener datos de DolarHoy, intentando con Ámbito...")
+    dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_ambito()
+
+if not (dolar_ars_compra and dolar_ars_venta):
+    st.warning("❗ No se pudo obtener datos de Ámbito, intentando con Bluelytics...")
     dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_ars()
 
 dolar_clp = get_dolar_chile()
@@ -85,8 +106,9 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
 
     # Mostrar cotizaciones oficiales
     st.markdown("---")
-    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**) 📰 Fuente: **DolarHoy o Bluelytics**")
+    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**) 📰 Fuente: **DolarHoy, Ámbito o Bluelytics**")
     st.markdown(f"📊 Cotización oficial del dólar en Chile: **CLP {dolar_clp}** (fuente: mindicador.cl)")
 
 else:
     st.info("Esperando ingreso de datos o carga de cotizaciones...")
+
