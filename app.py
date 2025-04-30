@@ -8,16 +8,20 @@ st.title("💱 Comparador de opciones de pago en Chile")
 
 st.markdown("""
 Ingresá el precio del producto en pesos chilenos (CLP) y las cotizaciones que ofrece el comercio.  
-La app te dirá qué opción te conviene: pagar en CLP, dólares, pesos argentinos o con CLP comprados en una casa de cambio.
+También podés ingresar cotizaciones de una casa de cambio donde hayas cambiado USD o ARS por CLP.  
+La app te dirá qué opción te conviene más.
 """)
 
 # === Inputs del usuario ===
 precio_clp = st.number_input("💰 Precio del producto en CLP", min_value=1.0, step=1.0)
 cotizacion_dolar_comercio = st.number_input("💵 Cotización del DÓLAR ofrecida por el comercio (CLP/USD)", min_value=1.0, step=1.0)
 cotizacion_ars_comercio = st.number_input("🇦🇷 Cotización del PESO ARG. ofrecida por el comercio (CLP/ARS)", min_value=0.1, step=0.1)
-cotizacion_cambio_clp = st.number_input("🏦 Cotización de casa de cambio (CLP por cada ARS/USD)", min_value=0.1, step=0.1)
 
-# === Scraping de Ámbito ===
+st.markdown("### 🏦 Cotización en casa de cambio")
+cotizacion_clp_por_usd = st.number_input("CLP recibidos por cada USD cambiado", min_value=0.0, step=1.0)
+cotizacion_clp_por_ars = st.number_input("CLP recibidos por cada ARS cambiado", min_value=0.0, step=0.1)
+
+# === Scraping de Ámbito —
 def get_dolar_oficial_ambito():
     try:
         url = "https://www.ambito.com/contenidos/dolar.html"
@@ -37,7 +41,7 @@ def get_dolar_oficial_ambito():
         pass
     return None, None
 
-# === API de Bluelytics como alternativa ===
+# === Bluelytics como alternativa —
 def get_dolar_oficial_bluelytics():
     try:
         response = requests.get("https://api.bluelytics.com.ar/v2/latest")
@@ -46,7 +50,7 @@ def get_dolar_oficial_bluelytics():
     except:
         return None, None
 
-# === API de mindicador.cl para el dólar CLP ===
+# === Dólar en Chile —
 def get_dolar_chile():
     try:
         response = requests.get("https://mindicador.cl/api/dolar")
@@ -68,22 +72,31 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
 
     st.subheader("🔎 Resultados del análisis")
 
-    # Cálculos
+    # Opción 1: pagar en dólares
     precio_usd = precio_clp / cotizacion_dolar_comercio
-    precio_ars_directo = precio_clp / cotizacion_ars_comercio
     precio_en_ars_usd = precio_usd * dolar_ars_venta
 
-    # Si el usuario ingresó una cotización de casa de cambio:
-    precio_ars_cambio = None
-    if cotizacion_cambio_clp > 0:
-        # Suponemos que el usuario compra CLP con ARS o USD, y calcula cuántos ARS necesita para ese precio en CLP
-        precio_ars_cambio = precio_clp / cotizacion_cambio_clp
+    # Opción 2: pagar en pesos argentinos
+    precio_ars_directo = precio_clp / cotizacion_ars_comercio
+
+    # Opción 3: usar CLP comprados con USD
+    precio_ars_cambio_usd = None
+    if cotizacion_clp_por_usd > 0:
+        usd_necesarios = precio_clp / cotizacion_clp_por_usd
+        precio_ars_cambio_usd = usd_necesarios * dolar_ars_venta
+
+    # Opción 4: usar CLP comprados con ARS
+    precio_ars_cambio_ars = None
+    if cotizacion_clp_por_ars > 0:
+        precio_ars_cambio_ars = precio_clp / cotizacion_clp_por_ars
 
     # Mostrar conversiones
-    st.write(f"💸 Precio en **USD**: {precio_usd:.2f} → equivale a **ARS {precio_en_ars_usd:.2f}** (usando dólar oficial venta)")
-    st.write(f"💸 Precio en **ARS directo** (según cotización del comercio): ARS {precio_ars_directo:.2f}")
-    if precio_ars_cambio:
-        st.write(f"💸 Precio en **ARS usando casa de cambio**: ARS {precio_ars_cambio:.2f}")
+    st.write(f"💸 Precio en **USD**: {precio_usd:.2f} → equivale a **ARS {precio_en_ars_usd:.2f}** (dólar oficial venta)")
+    st.write(f"💸 Precio en **ARS directo** (cotización del comercio): ARS {precio_ars_directo:.2f}")
+    if precio_ars_cambio_usd:
+        st.write(f"💸 Precio en **ARS usando CLP comprados con USD**: ARS {precio_ars_cambio_usd:.2f}")
+    if precio_ars_cambio_ars:
+        st.write(f"💸 Precio en **ARS usando CLP comprados con ARS**: ARS {precio_ars_cambio_ars:.2f}")
     st.write(f"💸 Precio en **CLP**: CLP {precio_clp:.2f}")
 
     # Comparación
@@ -91,11 +104,13 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
         "DÓLARES": precio_en_ars_usd,
         "PESOS ARGENTINOS": precio_ars_directo,
     }
-    if precio_ars_cambio:
-        opciones["CLP desde casa de cambio"] = precio_ars_cambio
+    if precio_ars_cambio_usd:
+        opciones["CLP comprados con USD"] = precio_ars_cambio_usd
+    if precio_ars_cambio_ars:
+        opciones["CLP comprados con ARS"] = precio_ars_cambio_ars
 
     mejor_opcion = min(opciones, key=opciones.get)
-    st.success(f"✅ Te conviene pagar en **{mejor_opcion}**")
+    st.success(f"✅ Te conviene pagar usando **{mejor_opcion}**")
 
     # Mostrar cotizaciones oficiales
     st.markdown("---")
@@ -104,5 +119,3 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
 
 else:
     st.info("Esperando ingreso de datos o carga de cotizaciones...")
-
-
