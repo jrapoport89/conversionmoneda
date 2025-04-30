@@ -28,7 +28,8 @@ def get_dolar_oficial_dolarhoy():
             compra = valores[0].text.strip().replace("$", "").replace(",", ".")
             venta = valores[1].text.strip().replace("$", "").replace(",", ".")
             return float(compra), float(venta)
-    except:
+    except Exception as e:
+        st.warning(f"Error al obtener datos de DolarHoy: {e}")
         return None, None
     return None, None
 
@@ -50,30 +51,11 @@ def get_dolar_chile():
     except:
         return None
 
-# === API alternativa de Ámbito Financiero para el dólar oficial ARS ===
-def get_dolar_oficial_ambito():
-    try:
-        response = requests.get("https://mercados.ambito.com/dolar/oficial")
-        if response.status_code == 200:
-            data = response.json()
-            compra = float(data[1].replace(",", "."))
-            venta = float(data[2].replace(",", "."))
-            return compra, venta
-    except:
-        return None, None
-    return None, None
-
 # === Obtener cotizaciones ===
 dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_dolarhoy()
-fuente_dolar = "DolarHoy"
-
 if not (dolar_ars_compra and dolar_ars_venta):
-    dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_ambito()
-    fuente_dolar = "Ámbito Financiero"
-
-if not (dolar_ars_compra and dolar_ars_venta):
+    st.warning("❗ No se pudo obtener datos de DolarHoy, intentando con Bluelytics...")
     dolar_ars_compra, dolar_ars_venta = get_dolar_oficial_ars()
-    fuente_dolar = "Bluelytics"
 
 dolar_clp = get_dolar_chile()
 
@@ -103,14 +85,8 @@ if all([dolar_ars_compra, dolar_ars_venta, dolar_clp]) and precio_clp > 0:
 
     # Mostrar cotizaciones oficiales
     st.markdown("---")
-    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**) 📰 Fuente: **{fuente_dolar}**")
+    st.markdown(f"📊 Cotización oficial del dólar en Argentina (Compra: **ARS {dolar_ars_compra}**, Venta: **ARS {dolar_ars_venta}**) 📰 Fuente: **DolarHoy o Bluelytics**")
     st.markdown(f"📊 Cotización oficial del dólar en Chile: **CLP {dolar_clp}** (fuente: mindicador.cl)")
 
 else:
     st.info("Esperando ingreso de datos o carga de cotizaciones...")
-
-
-else:
-    st.info("Esperando ingreso de datos o carga de cotizaciones...")
-
-
