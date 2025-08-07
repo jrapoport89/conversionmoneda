@@ -1,116 +1,105 @@
+# app.py
 import streamlit as st
 import requests
+import pandas as pd
+from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="Comparador de pagos", layout="wide")
+# Títulos
+st.title("Comparador de Medios de Pago en Chile")
+st.markdown("Ingrese los valores para comparar el costo en ARS según el medio de pago disponible en el comercio.")
 
-# ---------- FUNCIONES PARA COTIZACIONES ----------
+# Entradas del usuario en la barra lateral
+st.sidebar.header("Ingresar información del comercio")
 
-def obtener_dolar_bluelytics():
+valor_producto_clp = st.sidebar.number_input("Precio del producto en CLP", min_value=0.0, step=100.0)
+
+st.sidebar.subheader("Cotizaciones del comercio")
+clp_usd_comercio = st.sidebar.number_input("CLP por 1 USD (comercio)", min_value=0.0, step=10.0)
+clp_ars_comercio = st.sidebar.number_input("CLP por 1 ARS (comercio)", min_value=0.0, step=1.0)
+
+st.sidebar.subheader("Cotización en casa de cambio")
+usd_ars_casadecambio = st.sidebar.number_input("USD por 1 ARS (casa de cambio)", min_value=0.0, step=0.01)
+clp_usd_casadecambio = st.sidebar.number_input("CLP por 1 USD (casa de cambio)", min_value=0.0, step=10.0)
+clp_ars_casadecambio = st.sidebar.number_input("CLP por 1 ARS (casa de cambio)", min_value=0.0, step=1.0)
+
+st.sidebar.subheader("Opciones de pago aceptadas")
+opciones = {
+    "CLP (casa de cambio)": st.sidebar.checkbox("Pago en CLP (cambio previo)"),
+    "USD": st.sidebar.checkbox("Pago en USD"),
+    "ARS": st.sidebar.checkbox("Pago en ARS"),
+    "Débito": st.sidebar.checkbox("Pago con Débito"),
+    "Crédito": st.sidebar.checkbox("Pago con Crédito")
+}
+
+# Funciones para obtener cotizaciones oficiales
+@st.cache_data
+
+def obtener_dolar_oficial():
     try:
-        response = requests.get("https://api.bluelytics.com.ar/v2/latest")
-        data = response.json()
-        oficial = data["oficial"]["value_avg"]
-        tarjeta = oficial * 1.3
-        return oficial, tarjeta, "Bluelytics"
-    except:
-        try:
-            oficial = requests.get("https://dolarapi.com/v1/dolares/oficial").json()["venta"]
-            tarjeta = requests.get("https://dolarapi.com/v1/dolares/tarjeta").json()["venta"]
-            return oficial, tarjeta, "DolarAPI"
-        except:
-            return None, None, "No disponible"
-
-def obtener_clp_usd():
-    try:
-        response = requests.get("https://dolarapi.com/v1/cotizaciones/clp")
-        data = response.json()
-        return data["venta"]
+        response = requests.get("https://dolarapi.com/v1/dolares/oficial")
+        return float(response.json()['venta'])
     except:
         return None
 
-# ---------- INTERFAZ ----------
+@st.cache_data
 
-st.title("💱 Comparador de opciones de pago en Chile")
+def obtener_dolar_tarjeta():
+    try:
+        response = requests.get("https://dolarapi.com/v1/dolares/tarjeta")
+        return float(response.json()['venta'])
+    except:
+        return None
 
-with st.sidebar:
-    st.header("Opciones de pago disponibles")
-    pago_clp = st.checkbox("Pago en CLP (Pesos Chilenos)")
-    pago_usd = st.checkbox("Pago en USD (dólares)")
-    pago_ars = st.checkbox("Pago en ARS (pesos argentinos)")
-    pago_debito = st.checkbox("Pago con débito automático (dólar oficial)")
+@st.cache_data
 
-    st.markdown("---")
-    st.subheader("Cotizaciones utilizadas")
-    oficial, tarjeta, fuente_usd = obtener_dolar_bluelytics()
-    clp_usd_auto = obtener_clp_usd()
-    st.write(f"🔹 Dólar oficial: {oficial} ARS/USD ({fuente_usd})")
-    st.write(f"🔹 Dólar tarjeta: {tarjeta} ARS/USD ({fuente_usd})")
-    st.write(f"🔹 CLP/USD (automática): {clp_usd_auto} (DolarAPI)")
+def obtener_dolar_chile():
+    try:
+        soup = BeautifulSoup(requests.get("https://si3.bcentral.cl/Indicadoressiete/secure/Indicadoresdiarios.aspx").text, 'html.parser')
+        valor = soup.find('span', id='lblValorDolar').text.strip().replace("$", "").replace(".", "").replace(",", ".")
+        return float(valor)
+    except:
+        return None
 
-# ---------- ENTRADA PRINCIPAL ----------
+# Obtener cotizaciones
+usd_ars_oficial = obtener_dolar_oficial()
+usd_ars_tarjeta = obtener_dolar_tarjeta()
+clp_usd_oficial = obtener_dolar_chile()
 
-st.markdown("## 🛒 Ingresá el precio del producto")
-precio_clp = st.number_input("💰 Precio en CLP (Pesos chilenos)", min_value=0.0, format="%.2f")
+# Cálculo de opciones
+opciones_pago = []
 
-# Opciones condicionales de cotización
-clp_ars_manual = None
-clp_usd_manual = None
-usd_clp_comercio = None
-ars_clp_comercio = None
+if opciones["CLP (casa de cambio)"] and clp_ars_casadecambio:
+    ars_total = valor_producto_clp / clp_ars_casadecambio
+    opciones_pago.append(["Pago en CLP (cambio previo)", f"CLP/ARS casa de cambio = {clp_ars_casadecambio}", round(ars_total, 2)])
 
-if pago_clp:
-    clp_ars_manual = st.number_input("🔸 Cotización CLP/ARS ofrecida por casa de cambio", min_value=0.0, format="%.4f")
-    clp_usd_manual = st.number_input("🔸 Cotización CLP/USD ofrecida por casa de cambio", min_value=0.0, format="%.4f")
+if opciones["USD"] and clp_usd_comercio and usd_ars_oficial:
+    usd = valor_producto_clp / clp_usd_comercio
+    ars_total = usd * usd_ars_oficial
+    opciones_pago.append(["Pago en USD", f"CLP/USD comercio = {clp_usd_comercio}, USD/ARS oficial = {usd_ars_oficial}", round(ars_total, 2)])
 
-if pago_usd:
-    usd_clp_comercio = st.number_input("🔸 Cotización CLP/USD ofrecida por el comercio", min_value=0.0, format="%.4f")
-    ars_clp_comercio = st.number_input("🔸 Cotización CLP/ARS ofrecida por el comercio", min_value=0.0, format="%.4f")
+if opciones["ARS"] and clp_ars_comercio:
+    ars_total = valor_producto_clp / clp_ars_comercio
+    opciones_pago.append(["Pago en ARS", f"CLP/ARS comercio = {clp_ars_comercio}", round(ars_total, 2)])
 
-# ---------- CÁLCULOS ----------
-opciones = []
+if opciones["Débito"] and clp_usd_oficial and usd_ars_oficial:
+    usd = valor_producto_clp / clp_usd_oficial
+    ars_total = usd * usd_ars_oficial
+    opciones_pago.append(["Pago con Débito", f"CLP/USD Chile API = {clp_usd_oficial}, USD/ARS oficial = {usd_ars_oficial}", round(ars_total, 2)])
 
-if pago_clp and clp_ars_manual:
-    total_ars_clp = precio_clp * clp_ars_manual
-    opciones.append(("CLP → ARS (cambio)", total_ars_clp, "ARS"))
+if opciones["Crédito"] and clp_usd_oficial and usd_ars_tarjeta:
+    usd = valor_producto_clp / clp_usd_oficial
+    ars_total = usd * usd_ars_tarjeta
+    opciones_pago.append(["Pago con Crédito", f"CLP/USD Chile API = {clp_usd_oficial}, USD/ARS tarjeta = {usd_ars_tarjeta}", round(ars_total, 2)])
 
-if pago_clp and clp_usd_manual:
-    total_usd_clp = precio_clp * clp_usd_manual
-    opciones.append(("CLP → USD (cambio)", total_usd_clp, "USD"))
-
-if pago_usd and usd_clp_comercio:
-    precio_usd = precio_clp / usd_clp_comercio
-    opciones.append(("USD directo (CLP/USD comercio)", precio_usd, "USD"))
-
-if pago_usd and ars_clp_comercio and oficial:
-    precio_usd = precio_clp / ars_clp_comercio
-    total_ars = precio_usd * oficial
-    opciones.append(("USD → ARS (via comercio)", total_ars, "ARS"))
-
-if pago_ars and oficial:
-    precio_ars = precio_clp * (1 / clp_usd_auto) * oficial
-    opciones.append(("ARS directo (auto)", precio_ars, "ARS"))
-
-if pago_debito and tarjeta:
-    precio_usd = precio_clp / clp_usd_auto
-    total_ars_tarjeta = precio_usd * tarjeta
-    opciones.append(("Débito automático", total_ars_tarjeta, "ARS"))
-
-# ---------- RESULTADOS ----------
-
-if opciones:
-    st.markdown("## 🧮 Comparación de costos")
-    st.write("Los siguientes valores son aproximados y se calculan en base a las cotizaciones ingresadas y automáticas:")
-
-    opciones.sort(key=lambda x: x[1])
-
-    st.table({
-        "Opción": [x[0] for x in opciones],
-        "Costo": [f"{x[1]:,.2f}" for x in opciones],
-        "Moneda": [x[2] for x in opciones]
-    })
-
-    mejor_opcion = opciones[0]
-    st.markdown(f"### ✅ Conviene pagar con: **{mejor_opcion[0]}** → {mejor_opcion[1]:,.2f} {mejor_opcion[2]}")
+# Mostrar resultados
+if opciones_pago:
+    df = pd.DataFrame(opciones_pago, columns=["Opción", "Cotizaciones usadas", "Costo en ARS"])
+    df = df.sort_values("Costo en ARS")
+    st.subheader("Comparativa de Opciones de Pago")
+    st.dataframe(df, use_container_width=True)
+    mejor = df.iloc[0]
+    st.success(f"Conviene pagar con: **{mejor['Opción']}** (≈ {mejor['Costo en ARS']} ARS)")
 else:
-    st.info("Seleccioná al menos una opción y completá los datos para ver la comparación.")
+    st.info("Seleccione al menos una opción de pago y complete los datos necesarios para calcular.")
+
 
