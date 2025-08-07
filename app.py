@@ -6,35 +6,51 @@ st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="w
 
 # ---- Funciones auxiliares ----
 def obtener_cotizaciones():
-    cotizaciones = {}
+    cotizaciones = {
+        "usd_oficial": None,
+        "fecha_usd_oficial": None,
+        "usd_tarjeta": None,
+        "fecha_usd_tarjeta": None,
+        "usd_chile": None,
+        "fecha_usd_chile": None,
+    }
+
+      try:
+        r = requests.get("https://dolarapi.com/v1/dolares/oficial")
+        if r.status_code == 200:
+            data = r.json()
+            cotizaciones["usd_oficial"] = float(data.get("venta", 0))
+            cotizaciones["fecha_usd_oficial"] = datetime.fromisoformat(data.get("fecha", datetime.now().isoformat()))
+    except:
+        pass
 
     try:
-        # Argentina - Dólar Oficial
-        r = requests.get("https://dolarapi.com/v1/dolares/oficial")
-        data = r.json()
-        cotizaciones["usd_oficial"] = data["venta"]
-        cotizaciones["fecha_usd_oficial"] = data["fechaActualizacion"]
-
-        # Argentina - Dólar Tarjeta
         r = requests.get("https://dolarapi.com/v1/dolares/tarjeta")
-        data = r.json()
-        cotizaciones["usd_tarjeta"] = data["venta"]
-        cotizaciones["fecha_usd_tarjeta"] = data["fechaActualizacion"]
+        if r.status_code == 200:
+            data = r.json()
+            cotizaciones["usd_tarjeta"] = float(data.get("venta", 0))
+            cotizaciones["fecha_usd_tarjeta"] = datetime.fromisoformat(data.get("fecha", datetime.now().isoformat()))
+    except:
+        pass
 
-        # Chile - Dólar
+    try:
         r = requests.get("https://cl.dolarapi.com/v1/cotizaciones/usd")
-        data = r.json()
-        cotizaciones["usd_chile"] = data["venta"]
-        cotizaciones["fecha_usd_chile"] = data["fechaActualizacion"]
-
+        if r.status_code == 200:
+            data = r.json()
+            cotizaciones["usd_chile"] = float(data.get("venta", 0))
+            cotizaciones["fecha_usd_chile"] = datetime.fromisoformat(data.get("fecha", datetime.now().isoformat()))
     except Exception as e:
-        st.error("Error al obtener cotizaciones. Verificá tu conexión.")
-        st.stop()
+        st.error("Error al obtener cotizaciones. Verifica Tu conexion."
+        st.stop
 
     return cotizaciones
 
-def formatear_fecha(fecha_str):
-    return datetime.fromisoformat(fecha_str).strftime('%d/%m/%Y %H:%M')
+    
+def formatear_fecha(fecha):
+    if fecha:
+        return fecha.strftime('%d/%m/%Y %H:%M')
+    else:
+        return "No Disponible :("
 
 # ---- Sidebar ----
 st.sidebar.header("Ingresá los datos del producto")
@@ -68,6 +84,11 @@ st.sidebar.markdown(f"- **Dólar Oficial Argentina**: ${cotizaciones['usd_oficia
 st.sidebar.markdown(f"- **Dólar Tarjeta**: ${cotizaciones['usd_tarjeta']} (Actualizado: {formatear_fecha(cotizaciones['fecha_usd_tarjeta'])})")
 st.sidebar.markdown(f"- **Dólar Chile**: ${cotizaciones['usd_chile']} (Actualizado: {formatear_fecha(cotizaciones['fecha_usd_chile'])})")
 
+if cotizaciones ['usd_chile'] and cotizaciones['usd_oficial']:
+    clp_ars = cotizaciones['usd_chile'] / cotizaciones['usd_oficial']
+    st.sidebar.markdown(f"- **Cotización oficial CLP/ARS**: {clp_ars:.4f}")
+else:
+    st.sidebar.markdown(f"- **Cotización oficial CLP/ARS**: No disponible")
 # ---- Página principal ----
 st.title("Comparador de medios de pago para compras en Chile")
 
