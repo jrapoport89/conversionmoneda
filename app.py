@@ -15,7 +15,7 @@ def obtener_cotizaciones():
         "fecha_usd_chile": None,
     }
 
-      try:
+    try:
         r = requests.get("https://dolarapi.com/v1/dolares/oficial")
         if r.status_code == 200:
             data = r.json()
