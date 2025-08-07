@@ -1,88 +1,122 @@
-import streamlit as st
+iimport streamlit as st
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
 
-st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="centered")
-st.title("Comparador de Medios de Pago en Chile")
+st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="wide")
 
-# --- Sidebar: Medios de pago ---
-st.sidebar.subheader("Seleccioná los medios de pago que acepta el comercio")
-medios_pago = {
-    "CLP en casa de cambio": st.sidebar.checkbox("CLP en casa de cambio"),
-    "USD en comercio": st.sidebar.checkbox("USD en comercio"),
-    "ARS en comercio": st.sidebar.checkbox("ARS en comercio"),
-    "Débito (USD oficial)": st.sidebar.checkbox("Débito (USD oficial)"),
-    "Crédito (USD tarjeta)": st.sidebar.checkbox("Crédito (USD tarjeta)")
-}
+# ---- Funciones auxiliares ----
+def obtener_cotizaciones():
+    cotizaciones = {}
 
-# --- Funciones ---
-def obtener_dolar_oficial_arg():
     try:
-        response = requests.get("https://dolarapi.com/v1/dolares/oficial")
-        data = response.json()
-        return data['venta']
-    except:
-        return None
+        # Argentina - Dólar Oficial
+        r = requests.get("https://dolarapi.com/v1/dolares/oficial")
+        data = r.json()
+        cotizaciones["usd_oficial"] = data["venta"]
+        cotizaciones["fecha_usd_oficial"] = data["fechaActualizacion"]
 
-def obtener_dolar_oficial_cl():
-    try:
-        response = requests.get("https://dolarapi.com/v1/dolares/clp")
-        data = response.json()
-        return data['venta']
-    except:
-        return None
+        # Argentina - Dólar Tarjeta
+        r = requests.get("https://dolarapi.com/v1/dolares/tarjeta")
+        data = r.json()
+        cotizaciones["usd_tarjeta"] = data["venta"]
+        cotizaciones["fecha_usd_tarjeta"] = data["fechaActualizacion"]
 
-# --- Ingreso de datos ---
-st.subheader("Ingresá el valor del producto en pesos chilenos (CLP)")
-precio_clp = st.number_input("Precio del producto (CLP):", min_value=0.0, format="%.2f")
+        # Chile - Dólar
+        r = requests.get("https://cl.dolarapi.com/v1/cotizaciones/usd")
+        data = r.json()
+        cotizaciones["usd_chile"] = data["venta"]
+        cotizaciones["fecha_usd_chile"] = data["fechaActualizacion"]
 
-st.subheader("Cotizaciones que te ofrece el comercio")
-cotizacion_clp_ars = st.number_input("Cotización ARS/CLP (cuántos CLP por 1 ARS):", min_value=0.0, format="%.2f")
-cotizacion_clp_usd = st.number_input("Cotización USD/CLP (cuántos CLP por 1 USD):", min_value=0.0, format="%.2f")
+    except Exception as e:
+        st.error("Error al obtener cotizaciones. Verificá tu conexión.")
+        st.stop()
 
-st.subheader("Cotización obtenida en casa de cambio")
-cotizacion_casa_cambio = st.number_input("Cotización USD/CLP en casa de cambio:", min_value=0.0, format="%.2f")
+    return cotizaciones
 
-# --- Obtener cotizaciones oficiales ---
-dolar_oficial_arg = obtener_dolar_oficial_arg()
-dolar_oficial_cl = obtener_dolar_oficial_cl()
-dolar_tarjeta = dolar_oficial_arg * 1.75 if dolar_oficial_arg else None
+def formatear_fecha(fecha_str):
+    return datetime.fromisoformat(fecha_str).strftime('%d/%m/%Y %H:%M')
 
-# --- Cálculos ---
-opciones = []
+# ---- Sidebar ----
+st.sidebar.header("Ingresá los datos del producto")
 
-if medios_pago["CLP en casa de cambio"] and cotizacion_casa_cambio > 0 and dolar_oficial_arg:
-    ars_total = (precio_clp / cotizacion_casa_cambio) * dolar_oficial_arg
-    opciones.append(("CLP en casa de cambio", ars_total, precio_clp / cotizacion_casa_cambio))
+# Precio del producto
+precio_clp_str = st.sidebar.text_input("Precio del producto en CLP", value="")
+try:
+    precio_clp = float(precio_clp_str.replace(",", "."))
+    if precio_clp <= 0:
+        st.sidebar.error("El valor debe ser mayor que cero.")
+        st.stop()
+except ValueError:
+    if precio_clp_str != "":
+        st.sidebar.error("Ingresá un número válido.")
+    st.stop()
 
-if medios_pago["USD en comercio"] and cotizacion_clp_usd > 0 and dolar_oficial_arg:
-    ars_total = (precio_clp / cotizacion_clp_usd) * dolar_oficial_arg
-    opciones.append(("USD en comercio", ars_total, precio_clp / cotizacion_clp_usd))
+# Selección de medios de pago
+st.sidebar.subheader("Seleccioná los medios de pago aceptados por el comercio")
+pago_ars = st.sidebar.checkbox("ARS cotizados por el comercio")
+pago_usd = st.sidebar.checkbox("USD cotizados por el comercio")
+pago_clp_cambio = st.sidebar.checkbox("CLP de casa de cambio")
+pago_debito = st.sidebar.checkbox("Débito (USD oficial)")
+pago_credito = st.sidebar.checkbox("Crédito (USD tarjeta)")
 
-if medios_pago["ARS en comercio"] and cotizacion_clp_ars > 0:
-    ars_total = precio_clp / cotizacion_clp_ars
-    opciones.append(("ARS en comercio", ars_total, None))
+# Obtener cotizaciones
+cotizaciones = obtener_cotizaciones()
 
-if medios_pago["Débito (USD oficial)"] and dolar_oficial_arg and cotizacion_clp_usd > 0:
-    ars_total = (precio_clp / cotizacion_clp_usd) * dolar_oficial_arg
-    opciones.append(("Débito (USD oficial)", ars_total, precio_clp / cotizacion_clp_usd))
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Cotizaciones actuales")
+st.sidebar.markdown(f"- **Dólar Oficial Argentina**: ${cotizaciones['usd_oficial']} (Actualizado: {formatear_fecha(cotizaciones['fecha_usd_oficial'])})")
+st.sidebar.markdown(f"- **Dólar Tarjeta**: ${cotizaciones['usd_tarjeta']} (Actualizado: {formatear_fecha(cotizaciones['fecha_usd_tarjeta'])})")
+st.sidebar.markdown(f"- **Dólar Chile**: ${cotizaciones['usd_chile']} (Actualizado: {formatear_fecha(cotizaciones['fecha_usd_chile'])})")
 
-if medios_pago["Crédito (USD tarjeta)"] and dolar_tarjeta and cotizacion_clp_usd > 0:
-    ars_total = (precio_clp / cotizacion_clp_usd) * dolar_tarjeta
-    opciones.append(("Crédito (USD tarjeta)", ars_total, precio_clp / cotizacion_clp_usd))
+# ---- Página principal ----
+st.title("Comparador de medios de pago para compras en Chile")
 
-# --- Resultados ---
-if opciones:
-    st.subheader("Resultados")
-    opciones.sort(key=lambda x: x[1])
-    for medio, ars, usd_usado in opciones:
-        if usd_usado:
-            st.write(f"💳 {medio}: ARS {ars:.2f} / USD {usd_usado:.2f}")
-        else:
-            st.write(f"💳 {medio}: ARS {ars:.2f}")
-    mejor_opcion = opciones[0][0]
-    st.success(f"Conviene pagar con: {mejor_opcion}")
+datos = {}
+
+# Ingresos adicionales según selección
+if pago_ars:
+    ars_cotizado = st.number_input("CLP por cada ARS tomados por el comercio", min_value=0.0001, format="%.4f")
+    datos["ARS cotizados por el comercio"] = precio_clp / ars_cotizado if ars_cotizado else None
+
+if pago_usd:
+    usd_cotizado = st.number_input("CLP por cada USD tomados por el comercio", min_value=0.0001, format="%.4f")
+    datos["USD cotizados por el comercio"] = (precio_clp / usd_cotizado) * cotizaciones["usd_oficial"] if usd_cotizado else None
+
+if pago_clp_cambio:
+    st.markdown("### CLP de casa de cambio")
+    col1, col2 = st.columns(2)
+    with col1:
+        clp_por_ars = st.number_input("CLP por cada ARS recibido en casa de cambio", min_value=0.0001, format="%.4f")
+        if clp_por_ars:
+            datos["CLP desde ARS en casa de cambio"] = precio_clp / clp_por_ars
+    with col2:
+        clp_por_usd = st.number_input("CLP por cada USD recibido en casa de cambio", min_value=0.0001, format="%.4f")
+        if clp_por_usd:
+            datos["CLP desde USD en casa de cambio"] = (precio_clp / clp_por_usd) * cotizaciones["usd_oficial"]
+
+if pago_debito:
+    datos["Débito (USD oficial)"] = (precio_clp / cotizaciones["usd_chile"]) * cotizaciones["usd_oficial"]
+
+if pago_credito:
+    datos["Crédito (USD tarjeta)"] = (precio_clp / cotizaciones["usd_chile"]) * cotizaciones["usd_tarjeta"]
+
+# ---- Tabla de resultados ----
+if datos:
+    st.markdown("### Comparación de medios de pago")
+    import pandas as pd
+
+    df_resultados = pd.DataFrame({
+        "Forma de pago": list(datos.keys()),
+        "Monto en ARS": [round(v, 2) if v is not None else None for v in datos.values()]
+    }).dropna()
+
+    st.table(df_resultados)
+
+    # Recomendación
+    if not df_resultados.empty:
+        forma_min = df_resultados.loc[df_resultados["Monto en ARS"].idxmin()]
+        st.markdown("## 🟩 **CONVIENE PAGAR CON:**")
+        st.success(f"**{forma_min['Forma de pago']}**, pagando aproximadamente **ARS {forma_min['Monto en ARS']:.2f}**")
 else:
-    st.info("Seleccioná al menos un medio de pago e ingresá las cotizaciones para ver resultados.")
+    st.info("Seleccioná al menos un medio de pago y completá los valores para ver los resultados.")
 
