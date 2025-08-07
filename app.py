@@ -86,7 +86,10 @@ st.sidebar.markdown(f"- **Dólar Chile**: ${cotizaciones['usd_chile']} (Actualiz
 
 if cotizaciones ['usd_chile'] and cotizaciones['usd_oficial']:
     clp_ars = cotizaciones['usd_chile'] / cotizaciones['usd_oficial']
-    st.sidebar.markdown(f"- **Cotización oficial CLP/ARS**: {clp_ars:.4f}")
+    st.sidebar.markdown(f"""<p style="color:red; font-weight:bold; font-size:18px;">
+    Cotización oficial CLP/ARS: {clp_ars:.4f}
+    </p>""",
+    unsafe_allow_html=True)
 else:
     st.sidebar.markdown(f"- **Cotización oficial CLP/ARS**: No disponible")
 # ---- Página principal ----
