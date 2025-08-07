@@ -40,7 +40,7 @@ def obtener_cotizaciones():
             cotizaciones["usd_chile"] = float(data.get("venta", 0))
             cotizaciones["fecha_usd_chile"] = datetime.fromisoformat(data.get("fecha", datetime.now().isoformat()))
     except Exception as e:
-        st.error("Error al obtener cotizaciones. Verifica Tu conexion."
+        st.error("Error al obtener cotizaciones. Verifica Tu conexion.")
         st.stop
 
     return cotizaciones
