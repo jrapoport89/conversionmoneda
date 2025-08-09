@@ -151,22 +151,16 @@ if pago_credito:
     datos["Crédito (USD tarjeta)"] = (precio_clp / cotizaciones["usd_chile"]) * cotizaciones["usd_tarjeta"]
 
 # ---- Tabla de resultados ----
-if datos:
-    st.markdown("### Comparación de medios de pago")
-    import pandas as pd
-
-    df_resultados = pd.DataFrame({
-        "Forma de pago": list(datos.keys()),
-        "Monto en ARS": [round(v, 2) if v is not None else None for v in datos.values()]
-    }).dropna()
-
-    st.table(df_resultados)
-
-    # Recomendación
-    if not df_resultados.empty:
-        forma_min = df_resultados.loc[df_resultados["Monto en ARS"].idxmin()]
-        st.markdown("## 🟩 **CONVIENE PAGAR CON:**")
-        st.success(f"**{forma_min['Forma de pago']}**, pagando aproximadamente **ARS {forma_min['Monto en ARS']:.2f}**")
+if not df_resultados.empty:
+    forma_min = df_resultados.loc[df_resultados["Monto en ARS"].idxmin()]
+    st.markdown("## 🟩 **CONVIENE PAGAR CON:**")
+    texto_recomendacion = f"**{forma_min['Forma de pago']}**, pagando aproximadamente **ARS {forma_min['Monto en ARS']:.2f}**"
+    
+    # Si la forma más conveniente es Débito, agregamos el mensaje con el valor en USD
+    if "Débito" in forma_min["Forma de pago"]:
+        monto_usd = forma_min['Monto en ARS'] / cotizaciones["usd_oficial"]
+        texto_recomendacion += f"\n\nSe debitarán aproximadamente **USD {monto_usd:.2f}** de tu cuenta en dólares."
+    
+    st.success(texto_recomendacion)
 else:
     st.info("Seleccioná al menos un medio de pago y completá los valores para ver los resultados.")
-
