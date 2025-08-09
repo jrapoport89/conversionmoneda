@@ -6,6 +6,29 @@ import pandas as pd
 st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="wide",
 initial_sidebar_state="expanded")
 
+# Inicializar estado de sidebar (True = abierto, False = cerrado)
+if "sidebar_open" not in st.session_state:
+    st.session_state.sidebar_open = False
+
+# Simular el cambio de estado (botón en la parte superior)
+if not st.session_state.sidebar_open:
+    st.markdown(
+        """
+        <div style='background-color:#ffeb3b; padding:8px; text-align:center; font-weight:bold;'>
+            ⬅️ Desplegar para ingresar datos
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# Sidebar con opción para "cerrar"
+with st.sidebar:
+    st.title("Opciones")
+    if st.button("Cerrar"):
+        st.session_state.sidebar_open = False
+    else:
+        st.session_state.sidebar_open = True
+
 # ---- Funciones auxiliares ----
 def obtener_cotizaciones():
     cotizaciones = {
