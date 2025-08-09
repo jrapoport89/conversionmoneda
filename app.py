@@ -1,8 +1,10 @@
 import streamlit as st
 import requests
 from datetime import datetime
+import pandas as pd
 
-st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="wide")
+st.set_page_config(page_title="Comparador de Medios de Pago en Chile", layout="wide",
+initial_sidebar_state="expanded")
 
 # ---- Funciones auxiliares ----
 def obtener_cotizaciones():
@@ -93,13 +95,7 @@ if cotizaciones ['usd_chile'] and cotizaciones['usd_oficial']:
 else:
     st.sidebar.markdown(f"- **Cotización oficial CLP/ARS**: No disponible")
 # ---- Página principal ----
-st.info("←←←←← Ingresa en el **desplegable** de la izquierda para comenzar")
-st.markdown(
-    """
-    ### ←←←←← Ingresa el valor del producto en el **desplegable** de la izquierda
-    """,
-    unsafe_allow_html=True
-)
+st.info("←←←←← Ingresa en el **desplegable** de la izquierda")
 st.title("Comparador de medios de pago para compras en Chile")
 
 datos = {}
